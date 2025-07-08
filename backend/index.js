@@ -5,18 +5,17 @@ class Board {
         this.tiles = tiles
     }
 
-    setChip(playedCard, color){
+    setChip(row, playedCard, color){
 
-        for (let i = 0; i < this.tiles.length; i++) {
-            let tileRow = this.tiles[i]
-            for (let j = 0; j < tileRow.length; j++) {
-                const tile = tileRow[j];
-                if (playedCard === tile.card.name){
-                    tile.chip = new Chip(color)
-                    return true
-                }
-            }            
-        }
+        let tileRow = this.tiles[row]
+        for (let j = 0; j < tileRow.length; j++) {
+            const tile = tileRow[j];
+            if (playedCard === tile.card.name){
+                tile.chip = new Chip(color)
+                return true
+            }
+        }            
+        
         return false
     }
 
@@ -48,21 +47,10 @@ class Deck {
     }
 
     shuffle(){
-        let newCards = []
-        
-        while (this.cards.length != 0){
-
-            const minCeiled = Math.ceil(0);
-            const maxFloored = Math.floor(this.cards.length - 1);
-
-            let randNum = Math.floor(Math.random() * (maxFloored - minCeiled) + minCeiled);
-            
-            newCards.push(this.cards[randNum])
-
-            this.cards.splice(randNum, 1)
+        for (let i = this.cards.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [this.cards[i], this.cards[j]] = [this.cards[j], this.cards[i]];
         }
-        
-        this.cards = newCards
     }
 
     dealHand(player, numCards){
@@ -72,6 +60,7 @@ class Deck {
             player.addToHand(card)
         }
     }
+
 
 }
 
@@ -114,24 +103,14 @@ class  Player {
         this.hand = []
     }
 
-    playCard(board, deck, discardPile, selectedCard){
+    playCard(discardPile, deck, selectedCard){
+        discardPile.discard(selectedCard)
+        this.removeFromHand(selectedCard)
 
-        let chipSet = board.setChip(selectedCard, this.color)
-
-
-        // if(!chipSet){
-        //     discardPile
-        // }
-
-        
-
-        // this.addToHand(deck.draw())
-        
-    }
-
-
-    deadCard(discardPile){
-        discardPile
+        if (deck.cards.length === 0) {
+            discardPile.emptyToDeck(deck)
+        }
+        this.addToHand(deck.draw())
     }
 
     addToHand(card){
@@ -218,7 +197,13 @@ class Game {
 
         let board = this.createBoard()
 
+        printBoard(board)
+
+
+
         let deck = this.createDeck()
+
+        let discardPile = new DiscardPile()
 
         deck.shuffle()
 
@@ -226,44 +211,36 @@ class Game {
             deck.dealHand(player, cardsPerPlayer)
         })
 
+        let playerIterator = 0
+
+        do {
         
-        let player = this.players[0]
-        
-        
-        console.log(`${player.name} turn`);
-        console.log(`Hand: ${getHandStr(player)}`);
-        const cardName = await ask('Select card: ')
-
-        console.log(board.setChip(cardName, player.color))
-
-        printBoard(board)
-
-        // let playerIterator = 0
-
-        // do {
-            
-        //     console.log(pl);
+            let player = this.players[playerIterator]
             
             
+            console.log(`\n\n${player.name} turn`);
+            console.log(`Hand: ${getHandStr(player)}`);
+            const cardName = await ask('Select card: ')
+            const row = await ask('Select row: ')
+
+            player.playCard(discardPile, deck, cardName)
+            let chipset = board.setChip(parseInt(row) - 1, cardName, player.color)
+
+            printBoard(board)
             
-        //     if(playerIterator === players.length -1) {
-        //         playerIterator = 0
-        //     }
+            if(!chipset){
+                continue
+            }
 
-        // }while(board.checkForWin())
+            if(playerIterator === players.length -1) {
+                    playerIterator = 0
+            }else {
+                playerIterator++
+            }
+
+        }while(true)
 
 
-        /*
-            distribute cards to each player
-            player turn
-            game actions
-            check if they won
-
-            repeat
-
-        
-        */
-        
     }
     
 
@@ -399,10 +376,6 @@ switch (numPlayers) {
 let game = new Game(players, sequencesToWin, cardsPerPlayer)
 
 await game.startGame()
-
-// printBoard(game.createBoard().tiles)
-
-// console.log(game.createDeck().cards);
 
 function getHandStr(player){
     let handStr = ''    
